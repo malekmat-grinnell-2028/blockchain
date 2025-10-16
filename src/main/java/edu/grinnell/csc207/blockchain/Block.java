@@ -16,6 +16,13 @@ public class Block {
     private long nonce;
     private Hash hash;
 
+    public Block(int num, int amount) throws NoSuchAlgorithmException, IOException {
+        number = num;
+        data = amount;
+        prev = null;
+        calculateNonceAndHash();
+    }
+
     public Block(int num, int amount, Hash prevHash) throws NoSuchAlgorithmException, IOException {
         number = num;
         data = amount;
@@ -72,22 +79,54 @@ public class Block {
         }
     }
 
-    public long getValidNonce(ByteBuffer buf) throws IOException{
+    public void getValidNonceWithoutPrevHash() throws IOException, NoSuchAlgorithmException{
+        MessageDigest md = MessageDigest.getInstance("sha-256");
+        ByteBuffer newBuf = ByteBuffer.allocate(24);
         for(long num = 0; num < 9223372036854775807L ; num++) {
-            ByteBuffer newBuf = ByteBuffer.allocate(prev.sizeOf()*16 + 16);
-            newBuf.put(buf.array());
+            newBuf.putInt(number);
+            md.update(newBuf.array());
+            newBuf.putInt(data);
+            md.update(newBuf.array());
             newBuf.putLong(num);
-            Hash newhash = new Hash(newBuf.array());
+            md.update(newBuf.array());
+            Hash newhash = new Hash(md.digest());
             if(newhash.isValid()) {
-                return num;
+                hash = newhash;
+                nonce = num;
+                return;
             }
+            newBuf.clear();
+            md.reset();
         }
-        throw new IOException("no valid nonce available");
+    }
+
+    //
+
+    public void getValidNonce() throws IOException, NoSuchAlgorithmException{
+        MessageDigest md = MessageDigest.getInstance("sha-256");
+        ByteBuffer newBuf = ByteBuffer.allocate(prev.sizeOf()*16 + 16);
+        addHashStringToBuffer(newBuf, prev);
+        for(long num = 0; num < 9223372036854775807L ; num++) {
+            newBuf.putInt(number);
+            md.update(newBuf.array());
+            newBuf.putInt(data);
+            md.update(newBuf.array());
+            newBuf.putLong(num);
+            md.update(newBuf.array());
+            Hash newhash = new Hash(md.digest());
+            if(newhash.isValid()) {
+                hash = newhash;
+                nonce = num;
+                return;
+            }
+            newBuf.clear();
+            md.reset();
+        }
     }
 
     public void getHashGivenNonce() throws NoSuchAlgorithmException, IOException{
         MessageDigest md = MessageDigest.getInstance("sha-256");
-        ByteBuffer buf = ByteBuffer.allocate(prev.sizeOf()*16 + 8);
+        ByteBuffer buf = ByteBuffer.allocate(prev.sizeOf()*16 + 16);
         buf.putInt(number);
         buf.putInt(data);
         addHashStringToBuffer(buf, prev);
@@ -99,28 +138,12 @@ public class Block {
 
     public void calculateNonceAndHash() throws NoSuchAlgorithmException, IOException{
         // sizeOf(int num) + sizeOf(int data) + sizeOf(long nonce)
-        MessageDigest md = MessageDigest.getInstance("sha-256");
+        
         if(prev != null) {
-            // SizeOf(prev) + sizeOf(int num) + sizeOf(int data) + sizeOf(long nonce)
-            ByteBuffer buf = ByteBuffer.allocate(prev.sizeOf()*16 + 8);
-            buf.putInt(number);
-            buf.putInt(data);
-            addHashStringToBuffer(buf, prev);
-            nonce = getValidNonce(buf);
-            buf.putLong(nonce);
-            md.update(buf);
-            byte[] arr = md.digest();
-            hash = new Hash(arr);
+            getValidNonce();
         } else {
             // sizeOf(int num) + sizeOf(int data) + sizeOf(long nonce)
-            ByteBuffer buf = ByteBuffer.allocate(8);
-            buf.putInt(number);
-            buf.putInt(data);
-            nonce = getValidNonce(buf);
-            buf.putLong(nonce);
-            md.update(buf);
-            byte[] arr = md.digest();
-            hash = new Hash(arr);
+            getValidNonceWithoutPrevHash();
         }
     }
 

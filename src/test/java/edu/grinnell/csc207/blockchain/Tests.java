@@ -61,7 +61,31 @@ public class Tests {
         Hash hash = new Hash(arr);
         Block b = new Block(0, 50, hash);
 
-        assertEquals("00", b.getHash());
+        assertEquals(true, b.getHash().isValid());
+    }
+
+    @Test
+    @DisplayName("test that a block a given prev hash generates and is valid")
+    public void testBlockGivenPrevHashNoNonce() throws NoSuchAlgorithmException, IOException {
+        Block b = new Block(0, 50, null);
+
+        assertEquals(true, b.getHash().isValid());
+    }
+
+    @Test
+    @DisplayName("test append works for BlockChain")
+    public void testBlockChainAppend() throws NoSuchAlgorithmException, IOException {
+        BlockChain bChain = new BlockChain(200);
+        bChain.append(bChain.mine(-100));
+        assertEquals(2, bChain.getSize());
+    }
+
+    @Test
+    @DisplayName("test that printBalances works for BlockChain")
+    public void testBlockChainPrintBalances() throws NoSuchAlgorithmException, IOException {
+        BlockChain bChain = new BlockChain(200);
+        bChain.append(bChain.mine(-100));
+        assertEquals("Alice: 100, Bob: 100", bChain.printBalancesHelper());
     }
 
 }
